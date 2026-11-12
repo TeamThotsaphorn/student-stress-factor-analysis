@@ -1,5 +1,7 @@
 # Factor Analysis of Psychological Stress among University Students
 
+**English** | [ภาษาไทย](README.th.md)
+
 What are the main sources of stress for university students, and do they differ by gender, year of study, or marital status?
 
 This project applies **Exploratory Factor Analysis (EFA)** to a public survey of 610 students. It reduces 15 stress items to 4 interpretable factors, then compares factor scores across student groups.
@@ -31,11 +33,39 @@ The data is the [**Student Psychological Stress Survey Dataset (University of An
 
 | File | Contents |
 |---|---|
-| `data/Encoded_dataset.xlsx` | 610 × 15 numeric responses (1–5) |
-| `data/Raw_dataset.xlsx` | Demographics plus text responses |
+| `data/Raw_dataset.xlsx` | Demographics plus text responses (main source) |
+| `data/Encoded_dataset.xlsx` | 610 × 15 numeric responses (1–5), used to check the recoding |
 | `data/Student_Stress_Questionnaire.docx` | Questionnaire wording |
+| `data/processed/stress_clean.csv` | Prepared table: id, demographics, Q1–Q15 (created by the notebook) |
+| `data/processed/stress_with_scores.csv` | Prepared table plus the 4 factor scores (created by the script) |
 
-**Data preparation:** The encoded file has no demographics and neither file has an ID column, so factor scores were matched to demographics by row order. Before merging, I recoded the raw text answers to 1–5 and compared them with the encoded file. All 9,150 cells (610 × 15) matched, so the rows refer to the same students.
+### Data preparation
+
+Data preparation is done in a separate notebook, **[`notebooks/01_data_preparation.ipynb`](notebooks/01_data_preparation.ipynb)** (Python, pandas). GitHub shows every step with its output, so you can follow it without running anything.
+
+All the information comes from **one file, `Raw_dataset.xlsx`**: four demographic columns plus the 15 answers stored as text. The notebook builds a single tidy table from it *before* any analysis. The authors' `Encoded_dataset.xlsx` is used only to check the recoding.
+
+| Step | What happens | Result |
+|---|---|---|
+| 1 | Read the raw file; check size, missing values, column names | 610 rows × 19 columns, no missing values; one column name has a trailing space (`'Gender '`) |
+| 2 | Rename columns and strip whitespace from text | Short names: `gender`, `age`, `marital`, `stage`, `Q1`–`Q15` |
+| 3 | List all answer values, then recode (Never = 1 … Always = 5) | Exactly 5 answer values; every answer recoded |
+| 4 | Compare the recoded answers with the authors' encoded file | 0 mismatches out of 9,150 cells, so the recoding and row order are correct |
+| 5 | Add an `id` column | `id` = 1 to 610 |
+| 6 | Check duplicates | 3 students gave identical answers, but their demographics differ, so they are different people |
+| 7 | Check straight-lining (the same answer on all 15 items) | 5 students (0.8%). Kept: too few to affect results, and no evidence of careless answering. Noted as a limitation |
+| 8 | Check group sizes | Female 368 / Male 242; Single 547 / Married 63; years 1–4 = 603 (6 master's and 1 PhD student excluded only from the year comparison) |
+| 9 | Save and re-read to verify | `data/processed/stress_clean.csv`: 610 rows × 20 columns |
+
+The R script reads `stress_clean.csv`, runs the factor analysis on the Q1–Q15 columns, and adds the four factor scores to the same table as new columns (`stress_with_scores.csv`). Each student's scores therefore stay on their own row.
+
+Example: the first student
+
+| Stage | id | Gender | Age | Marital | Year | Answers / factor scores |
+|---|---|---|---|---|---|---|
+| Raw file | – | Female | 24 | Single | Stage 4 | Always, Always, Sometimes, Sometimes, … |
+| `stress_clean.csv` | 1 | Female | 24 | Single | Stage 4 | Q1–Q4 = 5, 5, 3, 3, … |
+| `stress_with_scores.csv` | 1 | Female | 24 | Single | Stage 4 | exam & emotion **+1.51** · social **+1.14** · academic **−1.20** · financial **+1.19** |
 
 ---
 
@@ -59,9 +89,18 @@ The data is the [**Student Psychological Stress Survey Dataset (University of An
 
 ## How to run
 
+**1. Data preparation (Python)**
+
+```bash
+pip install pandas openpyxl jupyter
+cd notebooks
+jupyter notebook 01_data_preparation.ipynb   # run all cells
+```
+
+**2. Analysis and figures (R)**, from the repository root
+
 ```r
-install.packages(c("readxl", "psych", "Hmisc", "GGally", "REdaS"))
-# set the working directory to the repository root, then:
+install.packages(c("psych", "Hmisc", "GGally", "REdaS", "ggplot2"))
 source("analysis/stress_fa.R")
 ```
 
@@ -70,8 +109,10 @@ source("analysis/stress_fa.R")
 ## Repository structure
 
 ```
-├── analysis/stress_fa.R      # full analysis (R)
-├── data/                     # dataset + questionnaire (CC BY 4.0)
+├── notebooks/01_data_preparation.ipynb   # data preparation (Python)
+├── analysis/stress_fa.R      # factor analysis, group tests, figures (R)
+├── data/                     # original dataset + questionnaire (CC BY 4.0)
+│   └── processed/            # prepared data (created by the notebook and script)
 ├── figures/                  # charts used in this README
 └── slides/presentation.pdf   # class presentation (Thai)
 ```
@@ -80,6 +121,7 @@ source("analysis/stress_fa.R")
 
 - **Single source.** The data comes from one university in Iraq, so the factor structure may not generalize to other populations.
 - **Exploratory only.** A follow-up Confirmatory Factor Analysis (CFA), ideally on Thai students, is needed to confirm the structure.
+- **Straight-lining.** 5 students (0.8%) gave the same answer to all 15 items; they were kept, but a sensitivity check without them would strengthen the results.
 - **Cross-loading item.** Item Q7 (course too difficult) loads similarly on two factors (0.48 academic vs 0.44 exam & emotion).
 
 ## Data source and license
